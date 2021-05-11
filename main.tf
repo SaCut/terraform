@@ -71,7 +71,7 @@ resource "aws_subnet" "sav_public_net" {
   vpc_id = aws_vpc.sav_tf_vpc.id
   cidr_block = "10.0.1.0/24"
   map_public_ip_on_launch = "true" # makes it a public subnet
-  availability_zone = local.az
+  availability_zone = "${local.az}c"
   # route_table = aws_route_table.sav_tf_route.id
 
   tags = {
