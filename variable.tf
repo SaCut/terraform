@@ -3,7 +3,7 @@ variable "az" {
 }
 
 variable "app_image" {
-  default = "ami-092e11b51baf4d6b6"
+  default = "ami-0eace738484749e4b"
 }
 
 variable "db_image" {

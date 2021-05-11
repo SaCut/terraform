@@ -14,7 +14,7 @@
 
 locals {
   az = "eu-west-1"
-  app_image = "ami-0534ab98cc710d896" # app instance image
+  app_image = "ami-0eace738484749e4b" # app instance image
   db_image = "ami-04c1689efbc903e17" # database instance id
   type = "t2.micro" # defines the type of instance
   key = "eng84devops" # defines the ssh key to be used
@@ -177,16 +177,16 @@ resource "aws_instance" "sav_tf_app" {
   vpc_security_group_ids = [aws_security_group.sav_public_SG.id]
 
   # ----- INSTALLING STUFF IN DB INSTANCE FROM APP -----
-  provisioner "remote-exec" {
-    script = "./scripts/app/seed_db.sh"
-  }
+  # provisioner "remote-exec" {
+  #   script = "./scripts/app/seed_db.sh"
+  # }
 
-  connection {
-    type        = "ssh"
-    user        = "ubuntu"
-    private_key = file(local.key_path)
-    host        = self.public_ip
-  }
+  # connection {
+  #   type        = "ssh"
+  #   user        = "ubuntu"
+  #   private_key = file(local.key_path)
+  #   host        = self.public_ip
+  # }
   # ----- END SEEDING -----
 
   provisioner "file" {

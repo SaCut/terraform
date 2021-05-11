@@ -1,5 +1,3 @@
 #!/bin/bash
 
-# nodejs ~/provision/app/seeds/seed.js
-
-sudo apt install tree -y
+nodejs ~/provision/app/seeds/seed.js
