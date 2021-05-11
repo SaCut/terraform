@@ -14,10 +14,11 @@
 
 locals {
   az = "eu-west-1"
-  app_image = "ami-040b1f6b252d7350d" # app instance image
-  db_image = "ami-04408febde5e989a1" # database instance id
+  app_image = "ami-0534ab98cc710d896" # app instance image
+  db_image = "ami-04c1689efbc903e17" # database instance id
   type = "t2.micro" # defines the type of instance
   key = "eng84devops" # defines the ssh key to be used
+  key_path = "~/.ssh/eng84devops.pem"
   # task_vpc = "vpc-07e47e9d90d2076da" # vpc ID for the task
 }
 
@@ -108,29 +109,6 @@ resource "aws_security_group" "sav_public_SG" {
     description = "allows inbound traffic"
     vpc_id      = aws_vpc.sav_tf_vpc.id
 
-    # ingress = [
-    #   {
-    #     description       = "allows access from the internet"
-    #     type              = "ingress"
-    #     from_port         = 80
-    #     to_port           = 80
-    #     protocol          = "tcp"
-    #     cidr_blocks       = ["0.0.0.0/0"]
-    #     ipv6_cidr_blocks  = ["::/0"]
-    #     security_group_id = aws_security_group.sav_public_SG.id
-    #   },
-    #   {
-    #     description       = "allows access from my IP"
-    #     type              = "ingress"
-    #     from_port         = 22
-    #     to_port           = 22
-    #     protocol          = "tcp"
-    #     cidr_blocks       = ["165.120.9.26/32"]
-    #     ipv6_cidr_blocks  = ["::/0"]
-    #     security_group_id = aws_security_group.sav_public_SG.id
-    #   }
-    # ]
-
     egress {
       from_port        = 0
       to_port          = 0
@@ -168,6 +146,17 @@ resource "aws_security_group_rule" "shh" {
   security_group_id = aws_security_group.sav_public_SG.id
 }
 
+# create security group rule "self"
+resource "aws_security_group_rule" "self" {
+  description       = "allows access from itself"
+  type              = "ingress"
+  from_port         = "-1"
+  to_port           = "-1"
+  protocol          = "-1"
+  cidr_blocks       = ["10.0.1.0/24"]
+  ipv6_cidr_blocks  = ["::/0"]
+  security_group_id = aws_security_group.sav_public_SG.id
+}
 
 # ----- EC2 RESOURCES -----
 
@@ -187,6 +176,31 @@ resource "aws_instance" "sav_tf_app" {
 
   vpc_security_group_ids = [aws_security_group.sav_public_SG.id]
 
+  # ----- INSTALLING STUFF IN DB INSTANCE FROM APP -----
+  provisioner "remote-exec" {
+    script = "./scripts/app/seed_db.sh"
+  }
+
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file(local.key_path)
+    host        = self.public_ip
+  }
+  # ----- END SEEDING -----
+
+  provisioner "file" {
+    source      = "./scripts/app/init.sh"
+    destination = "~/init.sh"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x ~/init.sh",
+      "~/init.sh",
+    ]
+  }
+
   tags = {
       Name = "eng84_sav_tf_app"
   }
@@ -202,13 +216,13 @@ resource "aws_instance" "sav_tf_db" {
 
   private_ip = "10.0.2.100" # set the private ip
 
-  associate_public_ip_address = false # no public ip
+  associate_public_ip_address = true # for ssh
 
   subnet_id = aws_subnet.sav_private_net.id
 
   vpc_security_group_ids = [aws_security_group.sav_public_SG.id]
 
   tags = {
-      Name = "eng84_sav_tf_app"
+      Name = "eng84_sav_tf_db"
   }
 }
