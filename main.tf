@@ -13,11 +13,12 @@
 # }
 
 locals {
-  az = "eu-west-1a"
+  az = "eu-west-1"
   app_image = "ami-040b1f6b252d7350d" # app instance image
   db_image = "ami-04408febde5e989a1" # database instance id
   type = "t2.micro" # defines the type of instance
   key = "eng84devops" # defines the ssh key to be used
+  # task_vpc = "vpc-07e47e9d90d2076da" # vpc ID for the task
 }
 
 
@@ -101,6 +102,72 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.sav_tf_route.id # associated with public route table for debug
 }
 
+# create a public security group
+resource "aws_security_group" "sav_public_SG" {
+  name        = "sav_public_SG"
+    description = "allows inbound traffic"
+    vpc_id      = aws_vpc.sav_tf_vpc.id
+
+    # ingress = [
+    #   {
+    #     description       = "allows access from the internet"
+    #     type              = "ingress"
+    #     from_port         = 80
+    #     to_port           = 80
+    #     protocol          = "tcp"
+    #     cidr_blocks       = ["0.0.0.0/0"]
+    #     ipv6_cidr_blocks  = ["::/0"]
+    #     security_group_id = aws_security_group.sav_public_SG.id
+    #   },
+    #   {
+    #     description       = "allows access from my IP"
+    #     type              = "ingress"
+    #     from_port         = 22
+    #     to_port           = 22
+    #     protocol          = "tcp"
+    #     cidr_blocks       = ["165.120.9.26/32"]
+    #     ipv6_cidr_blocks  = ["::/0"]
+    #     security_group_id = aws_security_group.sav_public_SG.id
+    #   }
+    # ]
+
+    egress {
+      from_port        = 0
+      to_port          = 0
+      protocol         = "-1"
+      cidr_blocks      = ["0.0.0.0/0"]
+      ipv6_cidr_blocks = ["::/0"]
+    }
+
+    tags = {
+      Name = "eng84_sav_tf_public_SG"
+    }
+}
+
+# create security group rule "http"
+resource "aws_security_group_rule" "http" {
+  description       = "allows access from the internet"
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  ipv6_cidr_blocks  = ["::/0"]
+  security_group_id = aws_security_group.sav_public_SG.id
+}
+
+# create security group rule "ssh"
+resource "aws_security_group_rule" "shh" {
+  description       = "allows access from my IP"
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["165.120.9.26/32"]
+  ipv6_cidr_blocks  = ["::/0"]
+  security_group_id = aws_security_group.sav_public_SG.id
+}
+
 
 # ----- EC2 RESOURCES -----
 
@@ -117,6 +184,8 @@ resource "aws_instance" "sav_tf_app" {
   associate_public_ip_address = true # enable public ip on instance
 
   subnet_id = aws_subnet.sav_public_net.id # set the subnet
+
+  vpc_security_group_ids = [aws_security_group.sav_public_SG.id]
 
   tags = {
       Name = "eng84_sav_tf_app"
@@ -136,6 +205,8 @@ resource "aws_instance" "sav_tf_db" {
   associate_public_ip_address = false # no public ip
 
   subnet_id = aws_subnet.sav_private_net.id
+
+  vpc_security_group_ids = [aws_security_group.sav_public_SG.id]
 
   tags = {
       Name = "eng84_sav_tf_app"
