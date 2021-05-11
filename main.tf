@@ -189,16 +189,16 @@ resource "aws_instance" "sav_tf_app" {
   }
   # ----- END SEEDING -----
 
-  provisioner "file" {
-    source      = "./scripts/app/init.sh"
-    destination = "~/init.sh"
-  }
-
   provisioner "remote-exec" {
     inline = [
       "chmod +x ~/init.sh",
       "~/init.sh",
     ]
+  }
+
+  provisioner "file" {
+    source      = "./scripts/app/init.sh"
+    destination = "~/init.sh"
   }
 
   tags = {
