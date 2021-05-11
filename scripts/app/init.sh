@@ -1,3 +1,3 @@
 #!/bin/bash
 
-sudo apt install tree -y
+sudo apt install sl -y

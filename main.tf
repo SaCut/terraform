@@ -181,12 +181,12 @@ resource "aws_instance" "sav_tf_app" {
   #   script = "./scripts/app/seed_db.sh"
   # }
 
-  # connection {
-  #   type        = "ssh"
-  #   user        = "ubuntu"
-  #   private_key = file(local.key_path)
-  #   host        = self.public_ip
-  # }
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = file(local.key_path)
+    host        = self.public_ip
+  }
   # ----- END SEEDING -----
 
   provisioner "file" {
