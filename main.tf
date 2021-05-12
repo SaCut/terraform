@@ -13,7 +13,10 @@
 # }
 
 locals {
-  az = "eu-west-1"
+  region = "eu-west-1"
+  az_1 = "${local.region}a" # availability zone eu-west-1c
+  az_2 = "${local.region}c" # availability zone eu-west-1c
+  app_template = "lt-0eb371797eb762caf" # launch template for app instances
   app_image = "ami-0eace738484749e4b" # app instance image
   db_image = "ami-04c1689efbc903e17" # database instance id
   type = "t2.micro" # defines the type of instance
@@ -25,7 +28,7 @@ locals {
 
 # ----- DEFINE PROVIDER -----
 provider "aws" { # provider is a keyword to define the cloud provider
-  region = local.az # define the availability region for the instance
+  region = local.region # define the availability region for the instance
 }
 
 
@@ -43,6 +46,7 @@ resource "aws_vpc" "sav_tf_vpc" {
   }
 }
 
+# ----- ROUTE TABLE -----
 # create internet gateway
 resource "aws_internet_gateway" "sav_tf_gate" {
   vpc_id = aws_vpc.sav_tf_vpc.id
@@ -55,7 +59,7 @@ resource "aws_internet_gateway" "sav_tf_gate" {
 # create route table
 resource "aws_route_table" "sav_tf_route" {
   vpc_id = aws_vpc.sav_tf_vpc.id
-  # subnet_id = aws_subnet.sav_public_net.id
+  # subnet_id = aws_subnet.sav_public_net_a.id
 
   route {
     cidr_block = "0.0.0.0/0"
@@ -67,12 +71,26 @@ resource "aws_route_table" "sav_tf_route" {
   }
 }
 
-# block of code to create a public subnet
-resource "aws_subnet" "sav_public_net" {
+# ----- CREATE SUBNETS -----
+# block of code to create a public subnet in region eu-west-1a
+resource "aws_subnet" "sav_public_net_a" {
   vpc_id = aws_vpc.sav_tf_vpc.id
   cidr_block = "10.0.1.0/24"
   map_public_ip_on_launch = "true" # makes it a public subnet
-  availability_zone = "${local.az}c"
+  availability_zone = local.az_1
+  # route_table = aws_route_table.sav_tf_route.id
+
+  tags = {
+    name = "eng84_sav_tf_public_net_1a"
+  }
+}
+
+# block of code to create a public subnet in region eu-west-1c
+resource "aws_subnet" "sav_public_net_b" {
+  vpc_id = aws_vpc.sav_tf_vpc.id
+  cidr_block = "10.0.4.0/24"
+  map_public_ip_on_launch = "true" # makes it a public subnet
+  availability_zone = local.az_2
   # route_table = aws_route_table.sav_tf_route.id
 
   tags = {
@@ -91,9 +109,10 @@ resource "aws_subnet" "sav_private_net" {
   }
 }
 
+# ----- SUBNET RULES -----
 # route table association to public subnet
 resource "aws_route_table_association" "public" {
-  subnet_id      = aws_subnet.sav_public_net.id
+  subnet_id      = aws_subnet.sav_public_net_a.id
   route_table_id = aws_route_table.sav_tf_route.id
 }
 
@@ -103,6 +122,7 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.sav_tf_route.id # associated with public route table for debug
 }
 
+# ----- SECURITY GROUPS -----
 # create a public security group
 resource "aws_security_group" "sav_public_SG" {
   name        = "sav_public_SG"
@@ -158,71 +178,90 @@ resource "aws_security_group_rule" "self" {
   security_group_id = aws_security_group.sav_public_SG.id
 }
 
-# ----- EC2 RESOURCES -----
 
-# launching app EC2 instance from AMI
-resource "aws_instance" "sav_tf_app" {
-  ami = local.app_image # define the source image
+# ----- AUTO SCALER -----
+# 
 
-  instance_type = local.type # define the type of instance
+# Target group
 
-  key_name = local.key
+# Auto Scaling Group
+resource "aws_autoscaling_group" "sav_auto_scale" {
+  availability_zones = [local.region]
+  desired_capacity   = 2
+  max_size           = 5
+  min_size           = 1
 
-  private_ip = "10.0.1.100" # set the private ip
-
-  associate_public_ip_address = true # enable public ip on instance
-
-  subnet_id = aws_subnet.sav_public_net.id # set the subnet
-
-  vpc_security_group_ids = [aws_security_group.sav_public_SG.id]
-
-  # ----- INSTALLING STUFF IN DB INSTANCE FROM APP -----
-  # provisioner "remote-exec" {
-  #   script = "./scripts/app/seed_db.sh"
-  # }
-
-  connection {
-    type        = "ssh"
-    user        = "ubuntu"
-    private_key = file(local.key_path)
-    host        = self.public_ip
-  }
-  # ----- END SEEDING -----
-
-  provisioner "remote-exec" {
-    inline = [
-      "chmod +x ~/init.sh",
-      "~/init.sh",
-    ]
-  }
-
-  provisioner "file" {
-    source      = "./scripts/app/init.sh"
-    destination = "~/init.sh"
-  }
-
-  tags = {
-      Name = "eng84_sav_tf_app"
+  launch_template {
+    id      = local.app_template
+    version = "$Latest"
   }
 }
 
-# launching db EC2 instance from AMI
-resource "aws_instance" "sav_tf_db" {
-  ami = local.db_image # define the source image
+# # ----- EC2 INSTANCES -----
 
-  instance_type = local.type
+# # launching app EC2 instance from AMI
+# resource "aws_instance" "sav_tf_app" {
+#   ami = local.app_image # define the source image
 
-  key_name = local.key
+#   instance_type = local.type # define the type of instance
 
-  private_ip = "10.0.2.100" # set the private ip
+#   key_name = local.key
 
-  associate_public_ip_address = true # for ssh
+#   private_ip = "10.0.1.100" # set the private ip
 
-  subnet_id = aws_subnet.sav_private_net.id
+#   associate_public_ip_address = true # enable public ip on instance
 
-  vpc_security_group_ids = [aws_security_group.sav_public_SG.id]
+#   subnet_id = aws_subnet.sav_public_net_a.id # set the subnet
 
-  tags = {
-      Name = "eng84_sav_tf_db"
-  }
-}
+#   vpc_security_group_ids = [aws_security_group.sav_public_SG.id]
+
+#   # ----- INSTALLING STUFF IN DB INSTANCE FROM APP -----
+#   # provisioner "remote-exec" {
+#   #   script = "./scripts/app/seed_db.sh"
+#   # }
+
+#   connection {
+#     type        = "ssh"
+#     user        = "ubuntu"
+#     private_key = file(local.key_path)
+#     host        = self.public_ip
+#   }
+#   # ----- END SEEDING -----
+
+#   provisioner "remote-exec" {
+#     inline = [
+#       "chmod +x ~/init.sh",
+#       "~/init.sh",
+#     ]
+#   }
+
+#   provisioner "file" {
+#     source      = "./scripts/app/init.sh"
+#     destination = "~/init.sh"
+#   }
+
+#   tags = {
+#       Name = "eng84_sav_tf_app"
+#   }
+# }
+
+# # launching db EC2 instance from AMI
+# resource "aws_instance" "sav_tf_db" {
+#   ami = local.db_image # define the source image
+
+#   instance_type = local.type
+
+#   key_name = local.key
+
+#   private_ip = "10.0.2.100" # set the private ip
+
+#   associate_public_ip_address = true # for ssh
+
+#   subnet_id = aws_subnet.sav_private_net.id
+
+#   vpc_security_group_ids = [aws_security_group.sav_public_SG.id]
+
+#   tags = {
+#       Name = "eng84_sav_tf_db"
+#   }
+# }
