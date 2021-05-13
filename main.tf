@@ -6,12 +6,6 @@
 
 
 # ----- VARIABLES -----
-
-# variable "subnets_cidr" {
-#   type = list
-#   default = ["10.0.1.0/24", "10.0.2.0/24"]
-# }
-
 locals {
   region       = "eu-west-1"
   az_1         = "${local.region}a" # availability zone eu-west-1c
@@ -242,48 +236,48 @@ resource "aws_security_group_rule" "public_self_2" {
 
 
 
-# # create a private security group
-# resource "aws_security_group" "sav_private_SG" {
-#   name        = "sav_private_SG"
-#   description = "allows inbound traffic"
-#   vpc_id      = aws_vpc.sav_tf_vpc.id
+# create a private security group
+resource "aws_security_group" "sav_private_SG" {
+  name        = "sav_private_SG"
+  description = "allows inbound traffic"
+  vpc_id      = aws_vpc.sav_tf_vpc.id
 
-#   egress {
-#     from_port        = 0
-#     to_port          = 0
-#     protocol         = "-1"
-#     cidr_blocks      = ["0.0.0.0/0"]
-#     ipv6_cidr_blocks = ["::/0"]
-#   }
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
 
-#   tags = {
-#     Name = "eng84_sav_tf_private_SG"
-#   }
-# }
+  tags = {
+    Name = "eng84_sav_tf_private_SG"
+  }
+}
 
-# # create security group rule "ssh"
-# resource "aws_security_group_rule" "private_shh" {
-#   description       = "allows access from my IP"
-#   type              = "ingress"
-#   from_port         = 22
-#   to_port           = 22
-#   protocol          = "tcp"
-#   cidr_blocks       = ["165.120.9.26/32"]
-#   ipv6_cidr_blocks  = ["::/0"]
-#   security_group_id = aws_security_group.sav_private_SG.id
-# }
+# create security group rule "ssh"
+resource "aws_security_group_rule" "private_shh" {
+  description       = "allows access from my IP"
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["165.120.9.26/32"]
+  ipv6_cidr_blocks  = ["::/0"]
+  security_group_id = aws_security_group.sav_private_SG.id
+}
 
-# # create security group rule "self"
-# resource "aws_security_group_rule" "private_self" {
-#   description       = "allows access from itself"
-#   type              = "ingress"
-#   from_port         = "-1"
-#   to_port           = "-1"
-#   protocol          = "-1"
-#   cidr_blocks       = ["10.0.1.0/24"]
-#   ipv6_cidr_blocks  = ["::/0"]
-#   security_group_id = aws_security_group.sav_private_SG.id
-# }
+# create security group rule "self"
+resource "aws_security_group_rule" "private_self" {
+  description       = "allows access from itself"
+  type              = "ingress"
+  from_port         = "-1"
+  to_port           = "-1"
+  protocol          = "-1"
+  cidr_blocks       = ["10.0.1.0/24"]
+  ipv6_cidr_blocks  = ["::/0"]
+  security_group_id = aws_security_group.sav_private_SG.id
+}
 
 
 # ----- AUTO SCALER -----
@@ -434,23 +428,23 @@ resource "aws_lb" "sav_lb" {
 #   }
 # }
 
-# # launching db EC2 instance from AMI
-# resource "aws_instance" "sav_tf_db" {
-#   ami = local.db_image # define the source image
+# launching db EC2 instance from AMI
+resource "aws_instance" "sav_tf_db" {
+  ami = local.db_image # define the source image
 
-#   instance_type = local.type
+  instance_type = local.type
 
-#   key_name = local.key
+  key_name = local.key
 
-#   private_ip = "10.0.2.100" # set the private ip
+  private_ip = "10.0.2.100" # set the private ip
 
-#   associate_public_ip_address = true # for ssh
+  associate_public_ip_address = true # for ssh
 
-#   subnet_id = aws_subnet.sav_private_net.id
+  subnet_id = aws_subnet.sav_private_net.id
 
-#   vpc_security_group_ids = [aws_security_group.sav_public_SG_1.id]
+  vpc_security_group_ids = [aws_security_group.sav_private_SG.id]
 
-#   tags = {
-#       Name = "eng84_sav_tf_db"
-#   }
-# }
+  tags = {
+      Name = "eng84_sav_tf_db"
+  }
+}
