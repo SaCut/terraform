@@ -143,7 +143,7 @@ resource "aws_security_group" "sav_public_SG" {
 }
 
 # create security group rule "http"
-resource "aws_security_group_rule" "http" {
+resource "aws_security_group_rule" "public_http" {
   description       = "allows access from the internet"
   type              = "ingress"
   from_port         = 80
@@ -155,7 +155,7 @@ resource "aws_security_group_rule" "http" {
 }
 
 # create security group rule "ssh"
-resource "aws_security_group_rule" "shh" {
+resource "aws_security_group_rule" "public_shh" {
   description       = "allows access from my IP"
   type              = "ingress"
   from_port         = 22
@@ -167,7 +167,7 @@ resource "aws_security_group_rule" "shh" {
 }
 
 # create security group rule "self"
-resource "aws_security_group_rule" "self" {
+resource "aws_security_group_rule" "public_self" {
   description       = "allows access from itself"
   type              = "ingress"
   from_port         = "-1"
@@ -179,14 +179,54 @@ resource "aws_security_group_rule" "self" {
 }
 
 
+# create a private security group
+resource "aws_security_group" "sav_private_SG" {
+  name        = "sav_private_SG"
+    description = "allows inbound traffic"
+    vpc_id      = aws_vpc.sav_tf_vpc.id
+
+    egress {
+      from_port        = 0
+      to_port          = 0
+      protocol         = "-1"
+      cidr_blocks      = ["0.0.0.0/0"]
+      ipv6_cidr_blocks = ["::/0"]
+    }
+
+    tags = {
+      Name = "eng84_sav_tf_private_SG"
+    }
+}
+
+# create security group rule "ssh"
+resource "aws_security_group_rule" "private_shh" {
+  description       = "allows access from my IP"
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = ["165.120.9.26/32"]
+  ipv6_cidr_blocks  = ["::/0"]
+  security_group_id = aws_security_group.sav_private_SG.id
+}
+
+# create security group rule "self"
+resource "aws_security_group_rule" "private_self" {
+  description       = "allows access from itself"
+  type              = "ingress"
+  from_port         = "-1"
+  to_port           = "-1"
+  protocol          = "-1"
+  cidr_blocks       = ["10.0.1.0/24"]
+  ipv6_cidr_blocks  = ["::/0"]
+  security_group_id = aws_security_group.sav_private_SG.id
+}
+
+
 # ----- AUTO SCALER -----
-# 
-
-# Target group
-
 # Auto Scaling Group
 resource "aws_autoscaling_group" "sav_auto_scale" {
-  availability_zones = [local.region]
+  availability_zones = [local.az_1, local.az_2]
   desired_capacity   = 2
   max_size           = 5
   min_size           = 1
@@ -196,6 +236,26 @@ resource "aws_autoscaling_group" "sav_auto_scale" {
     version = "$Latest"
   }
 }
+
+# ----- LOAD BALANCER -----
+# create target group
+
+
+# create load balancer
+resource "aws_lb" "sav_lb" {
+  name               = "eng84-sav-tf-ALB"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.sav_public_SG.id, aws_security_group.sav_private_SG.id]
+  subnets            = [aws_subnet.sav_public_net_a.id, aws_subnet.sav_public_net_b.id]
+
+  enable_deletion_protection = false
+
+  tags = {
+    Name = "eng84_sav_tf_ALB"
+  }
+}
+
 
 # # ----- EC2 INSTANCES -----
 
