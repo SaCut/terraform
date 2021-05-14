@@ -43,3 +43,25 @@ resource "aws_instance" "app_instance" {
   }
 }
 ```
+
+#### Terraform task:
+- Create a highly available app
+- Create public route table and associate it with app subnet
+- Create internet gate way and attach it to our VPC
+- Mkdir terraform/scripts terraform/scripts/app
+- Touch terraform/app/init.sh.tpl
+- Add the script
+```shell
+#!/bin/bash
+cd /home/ubuntu/app
+npm install
+pm2 start app.js
+```
+- Load this script and inject it into our instance
+- DOD: node-app working in our app instance with terraform script on port 3000
+- Create an autoscaling group on AWS using Console, then using IAC with Terraform
+- Create Application Load Balancer using AWS Console, then Terraform
+- Attach them to our instance/s
+
+#### Diagram:
+![img](https://imgur.com/oEAxKwK.png)
